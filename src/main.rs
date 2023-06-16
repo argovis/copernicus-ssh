@@ -107,8 +107,16 @@ fn main() -> Result<(),netcdf::error::Error> {
     //let dates93 = ["1993-01-10T00:00:00.000Z","1993-01-17T00:00:00.000Z","1993-01-24T00:00:00.000Z","1993-01-31T00:00:00.000Z","1993-02-07T00:00:00.000Z","1993-02-14T00:00:00.000Z","1993-02-21T00:00:00.000Z","1993-02-28T00:00:00.000Z","1993-03-07T00:00:00.000Z","1993-03-14T00:00:00.000Z","1993-03-21T00:00:00.000Z","1993-03-28T00:00:00.000Z","1993-04-04T00:00:00.000Z","1993-04-11T00:00:00.000Z","1993-04-18T00:00:00.000Z","1993-04-25T00:00:00.000Z","1993-05-02T00:00:00.000Z","1993-05-09T00:00:00.000Z","1993-05-16T00:00:00.000Z","1993-05-23T00:00:00.000Z","1993-05-30T00:00:00.000Z","1993-06-06T00:00:00.000Z","1993-06-13T00:00:00.000Z","1993-06-20T00:00:00.000Z","1993-06-27T00:00:00.000Z","1993-07-04T00:00:00.000Z","1993-07-11T00:00:00.000Z","1993-07-18T00:00:00.000Z","1993-07-25T00:00:00.000Z","1993-08-01T00:00:00.000Z","1993-08-08T00:00:00.000Z","1993-08-15T00:00:00.000Z","1993-08-22T00:00:00.000Z","1993-08-29T00:00:00.000Z","1993-09-05T00:00:00.000Z","1993-09-12T00:00:00.000Z","1993-09-19T00:00:00.000Z","1993-09-26T00:00:00.000Z","1993-10-03T00:00:00.000Z","1993-10-10T00:00:00.000Z","1993-10-17T00:00:00.000Z","1993-10-24T00:00:00.000Z","1993-10-31T00:00:00.000Z","1993-11-07T00:00:00.000Z","1993-11-14T00:00:00.000Z","1993-11-21T00:00:00.000Z","1993-11-28T00:00:00.000Z","1993-12-05T00:00:00.000Z","1993-12-12T00:00:00.000Z","1993-12-19T00:00:00.000Z","1993-12-26T00:00:00.000Z"];
     let dates93 = ["1993-01-10T00:00:00.000Z","1993-01-17T00:00:00.000Z","1993-01-24T00:00:00.000Z"];
 
+    // caluclate intervals in days since 1993-01-01 for all timesteps
+    let mut timesteps = Vec::new();
+    let epoch = DateTime::parse_from_rfc3339("1993-01-01T00:00:00Z").unwrap();
+    for _i in 0..dates93.len() {
+        let dt = DateTime::parse_from_rfc3339(dates93[_i]).unwrap();
+        timesteps.push(dt.signed_duration_since(epoch).num_days());
+    }
+
     // set up a new netcdf file to hold this period's averages
-    let mut outfile = netcdf::create("data/ssh_mean_1993.nc")?;
+    let mut outfile = netcdf::create("data/xx_ssh_mean_1993.nc")?;
     outfile.add_dimension("latitude", 720)?;
     outfile.add_dimension("longitude", 1440)?;
     outfile.add_dimension("time", dates93.len())?;
@@ -174,6 +182,29 @@ fn main() -> Result<(),netcdf::error::Error> {
             nobs.put_values(&nobsx, (time, lat, ..));
         }
     }
+
+    // propagate dimensions
+    let dates = timewindow(dates93[0], 3);
+    /// latitude
+    let f = netcdf::open(format!("data/dt_global_twosat_phy_l4_{}_vDT2021.nc", dates[3]))?;
+    let latitudes = &f.variable("latitude").expect("Could not find variable 'latitude'");
+    let mut lats = Vec::new();
+    for lat in 0..720 {
+        lats.push(latitudes.value::<f64, _>([lat])?);
+    }
+    let mut latvals = outfile.add_variable::<f64>("latitude",&["latitude"])?;
+    latvals.put_values(&lats, (0));
+    /// longitudes
+    let longitudes = &f.variable("longitude").expect("Could not find variable 'longitude'");
+    let mut lons = Vec::new();
+    for lon in 0..1440 {
+        lons.push(longitudes.value::<f64, _>([lon])?);
+    }
+    let mut lonvals = outfile.add_variable::<f64>("longitude",&["longitude"])?;
+    lonvals.put_values(&lons, (0));
+    /// timestamps
+    let mut timestamps = outfile.add_variable::<i64>("timestamps",&["time"])?;
+    timestamps.put_values(&timesteps, (0));
 
     Ok(())
 }
