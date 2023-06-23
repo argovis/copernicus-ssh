@@ -74,11 +74,8 @@ fn find_basin(basins: &netcdf::Variable, longitude: f64, latitude: f64) -> i32 {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 
-    // command line argument extraction
-    //let args: Vec<String> = env::args().collect();
-
     // fixed coordinates
-    let batchfiles = ["data/ssh_mean_9394.nc","data/ssh_mean_9596.nc","data/ssh_mean_9798.nc","data/ssh_mean_9900.nc","data/ssh_mean_0102.nc","data/ssh_mean_0304.nc","data/ssh_mean_0506.nc","data/ssh_mean_0708.nc","data/ssh_mean_0910.nc","data/ssh_mean_1112.nc","data/ssh_mean_1314.nc","data/ssh_mean_1516.nc","data/ssh_mean_1718.nc","data/ssh_mean_1920.nc","data/ssh_mean_2122.nc"];
+    let batchfiles = ["/bulk/copernicus-sla/ssh_mean_9394.nc","/bulk/copernicus-sla/ssh_mean_9596.nc","/bulk/copernicus-sla/ssh_mean_9798.nc","/bulk/copernicus-sla/ssh_mean_9900.nc","/bulk/copernicus-sla/ssh_mean_0102.nc","/bulk/copernicus-sla/ssh_mean_0304.nc","/bulk/copernicus-sla/ssh_mean_0506.nc","/bulk/copernicus-sla/ssh_mean_0708.nc","/bulk/copernicus-sla/ssh_mean_0910.nc","/bulk/copernicus-sla/ssh_mean_1112.nc","/bulk/copernicus-sla/ssh_mean_1314.nc","/bulk/copernicus-sla/ssh_mean_1516.nc","/bulk/copernicus-sla/ssh_mean_1718.nc","/bulk/copernicus-sla/ssh_mean_1920.nc","/bulk/copernicus-sla/ssh_mean_2122.nc"];
  
     // mongodb setup ////////////////////////////////////////////////////////////
     // Load the MongoDB connection string from an environment variable:
@@ -114,10 +111,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     /////////////////////////////////////////////////////////////////////////////////
-
-    // basin lookup
-    let basinfile = netcdf::open("data/basinmask_01.nc")?;
-    let basins = &basinfile.variable("BASIN_TAG").expect("Could not find variable 'BASIN_TAG'");
 
     // metadata construction
 
@@ -157,6 +150,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     copernicus_sla_meta.insert_one(metadata_doc.clone(), None).await?;
 
     // data doc: start by building matrix of measurement values for a single latitude and all the longitudes:
+
+    // basin lookup
+    let basinfile = netcdf::open("/bulk/copernicus-sla/basinmask_01.nc")?;
+    let basins = &basinfile.variable("BASIN_TAG").expect("Could not find variable 'BASIN_TAG'");
+
     for latidx in 0..720 {
         println!("latindex {}", latidx);
         let mut meanslabatch = Vec::new();
