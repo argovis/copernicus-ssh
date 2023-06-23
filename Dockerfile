@@ -4,4 +4,3 @@ RUN apt-get update -y && apt-get install -y nano curl wget libhdf5-serial-dev li
 WORKDIR /app
 COPY . .
 RUN chown -R 1000660000 /app
-CMD bash run.sh
