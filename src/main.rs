@@ -30,7 +30,7 @@ fn nowstring() -> String{
     return format!("{}-{:02}-{:02}T{:02}:{:02}:{:02}Z", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
 }
 
-fn find_basin(basins: &netcdf::Variable, longitude: f64, latitude: f64) -> i64 {    
+fn find_basin(basins: &netcdf::Variable, longitude: f64, latitude: f64) -> i32 {    
     let lonplus = (longitude-0.5).ceil()+0.5;
     let lonminus = (longitude-0.5).floor()+0.5;
     let latplus = (latitude-0.5).ceil()+0.5;
@@ -40,8 +40,6 @@ fn find_basin(basins: &netcdf::Variable, longitude: f64, latitude: f64) -> i64 {
     let lonminus_idx = (lonminus - -179.5) as usize;
     let latplus_idx = (latplus - -77.5) as usize;
     let latminus_idx = (latminus - -77.5) as usize;
-
-    //println!("{} {} {} {} {}", longitude, lonminus, lonminus_idx, lonplus, lonplus_idx);
 
     let corners_idx = [
         // bottom left corner, clockwise
@@ -68,7 +66,7 @@ fn find_basin(basins: &netcdf::Variable, longitude: f64, latitude: f64) -> i64 {
     }
 
     match basins.value::<i64,_>(closecorner_idx){
-        Ok(idx) => idx,
+        Ok(idx) => idx as i32,
         Err(e) => panic!("basin problems: {:?} {:#?}", e, closecorner_idx)
     }   
 }
@@ -142,7 +140,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             vec!(String::from("sla")),
             vec!(String::from("units"), String::from("long_name")),
             vec!(
-                vec!(String::from("Sea level anomaly"), String::from("m"))
+                vec!(String::from("m"), String::from("Sea level anomaly"))
             )
         ),
         date_updated_argovis: bson::DateTime::parse_rfc3339_str(nowstring()).unwrap(),
@@ -191,6 +189,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let latitude = &file.variable("latitude").expect("Could not find variable 'latitude'");
         let longitude = &file.variable("longitude").expect("Could not find variable 'longitude'");
         for lonidx in 0..1440 {
+            let d = meanslabatch[lonidx].clone();
+            /// bail out if the whole timeseries is nan
+            let mut nonnans = 0;
+            for _i in 0..d.len() {
+                if !d[_i].is_nan() {
+                    nonnans += 1;
+                }
+            }
+            if nonnans == 0 {
+                continue;
+            }
             let lat = latitude.value::<f64, _>([latidx])?;
             let lon = tidylon(longitude.value::<f64, _>([lonidx])?);
             let basin = find_basin(&basins, lon, lat);
@@ -201,13 +210,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 "basin": basin,
                 "geolocation": {
                     "type": "Point",
-                    "coordinates": [lat, lon]
+                    "coordinates": [lon, lat]
                 },
-                "data": [meanslabatch[lonidx].clone()]
+                "data": [d]
             };
             docs.push(data);
         }
-        copernicus_sla.insert_many(docs, None).await?;
+        if docs.len() > 0 {
+            copernicus_sla.insert_many(docs, None).await?;
+        }
     }
 
     Ok(())
