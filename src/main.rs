@@ -75,8 +75,9 @@ fn find_basin(basins: &netcdf::Variable, longitude: f64, latitude: f64) -> i32 {
 async fn main() -> Result<(), Box<dyn Error>> {
 
     // fixed coordinates
-    let batchfiles = ["/bulk/copernicus-sla/ssh_mean_9394.nc","/bulk/copernicus-sla/ssh_mean_9596.nc","/bulk/copernicus-sla/ssh_mean_9798.nc","/bulk/copernicus-sla/ssh_mean_9900.nc","/bulk/copernicus-sla/ssh_mean_0102.nc","/bulk/copernicus-sla/ssh_mean_0304.nc","/bulk/copernicus-sla/ssh_mean_0506.nc","/bulk/copernicus-sla/ssh_mean_0708.nc","/bulk/copernicus-sla/ssh_mean_0910.nc","/bulk/copernicus-sla/ssh_mean_1112.nc","/bulk/copernicus-sla/ssh_mean_1314.nc","/bulk/copernicus-sla/ssh_mean_1516.nc","/bulk/copernicus-sla/ssh_mean_1718.nc","/bulk/copernicus-sla/ssh_mean_1920.nc","/bulk/copernicus-sla/ssh_mean_2122.nc"];
- 
+    
+    let batchfiles = ["/bulk/sla_adt_mean_1993.nc","/bulk/sla_adt_mean_1994.nc","/bulk/sla_adt_mean_1995.nc","/bulk/sla_adt_mean_1996.nc","/bulk/sla_adt_mean_1997.nc","/bulk/sla_adt_mean_1998.nc","/bulk/sla_adt_mean_1999.nc","/bulk/sla_adt_mean_2000.nc","/bulk/sla_adt_mean_2001.nc","/bulk/sla_adt_mean_2002.nc","/bulk/sla_adt_mean_2003.nc","/bulk/sla_adt_mean_2004.nc","/bulk/sla_adt_mean_2005.nc","/bulk/sla_adt_mean_2006.nc","/bulk/sla_adt_mean_2007.nc","/bulk/sla_adt_mean_2008.nc","/bulk/sla_adt_mean_2009.nc","/bulk/sla_adt_mean_2010.nc","/bulk/sla_adt_mean_2011.nc","/bulk/sla_adt_mean_2012.nc","/bulk/sla_adt_mean_2013.nc","/bulk/sla_adt_mean_2014.nc","/bulk/sla_adt_mean_2015.nc","/bulk/sla_adt_mean_2016.nc","/bulk/sla_adt_mean_2017.nc","/bulk/sla_adt_mean_2018.nc","/bulk/sla_adt_mean_2019.nc","/bulk/sla_adt_mean_2020.nc","/bulk/sla_adt_mean_2021.nc","/bulk/sla_adt_mean_2022.nc"];
+
     // mongodb setup ////////////////////////////////////////////////////////////
     // Load the MongoDB connection string from an environment variable:
     let client_uri =
@@ -130,10 +131,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         _id: String::from("copernicusSLA"),
         data_type: String::from("sea level anomaly"),
         data_info: (
-            vec!(String::from("sla")),
+            vec!(String::from("sla"),String::from("adt")),
             vec!(String::from("units"), String::from("long_name")),
             vec!(
-                vec!(String::from("m"), String::from("Sea level anomaly"))
+                vec!(String::from("m"), String::from("Sea level anomaly")),
+                vec!(String::from("m"), String::from("Absolute dynamic topography")),
             )
         ),
         date_updated_argovis: bson::DateTime::parse_rfc3339_str(nowstring()).unwrap(),
@@ -158,6 +160,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for latidx in 0..720 {
         println!("latindex {}", latidx);
         let mut meanslabatch = Vec::new();
+        let mut meanadtbatch = Vec::new();
         for _lonidx in 0..1440 {
             meanslabatch.push(Vec::new());
         }
@@ -165,13 +168,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         for _f in 0..batchfiles.len() { // ie for every year
             let file = netcdf::open(batchfiles[_f])?; 
             let sla = &file.variable("sla").expect("Could not find variable 'sla'");
-            let nobs = &file.variable("nobs").expect("Could not find variable 'nobs'");
+            let adt = &file.variable("adt").expect("Could not find variable 'adt'");
+            let sla_nobs = &file.variable("nobs").expect("Could not find variable 'nobs'");
             let timestamps = &file.variable("timestamps").expect("Could not find variable 'timestamps'");
 
             for lonidx in 0..1440 {
                 for timeidx in 0..timestamps.len() {
                     let v = sla.value::<f64, _>([timeidx, latidx, lonidx])?;
-                    let n = nobs.value::<i64, _>([timeidx, latidx, lonidx])?;
+                    let n = sla_nobs.value::<i64, _>([timeidx, latidx, lonidx])?;
                     if v != -999.9 && n == 7 { // ie mask out means that didnt have all 7 days available
                         meanslabatch[lonidx].push(v);
                     } else {
