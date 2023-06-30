@@ -169,7 +169,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let file = netcdf::open(batchfiles[_f])?; 
             let sla = &file.variable("sla").expect("Could not find variable 'sla'");
             let adt = &file.variable("adt").expect("Could not find variable 'adt'");
-            let sla_nobs = &file.variable("nobs").expect("Could not find variable 'nobs'");
+            let sla_nobs = &file.variable("anomaly_nobs").expect("Could not find variable 'anomaly_nobs'");
+            let adt_nobs = &file.variable("abs_nobs").expect("Could not find variable 'abs_nobs'");
             let timestamps = &file.variable("timestamps").expect("Could not find variable 'timestamps'");
 
             for lonidx in 0..1440 {
@@ -181,6 +182,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     } else {
                         meanslabatch[lonidx].push(NAN);
                     }
+
+                    let v_adt = adt.value::<f64, _>([timeidx, latidx, lonidx])?;
+                    let n_adt = adt_nobs.value::<i64, _>([timeidx, latidx, lonidx])?;
+                    if v_adt != -999.9 && n_adt == 7 { // ie mask out adts that didnt have all 7 days available
+                        meanadtbatch[lonidx].push(v_adt);
+                    } else {
+                        meanadtbatch[lonidx].push(NAN);
+                    }
                 }
             }
         }
@@ -191,17 +200,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let latitude = &file.variable("latitude").expect("Could not find variable 'latitude'");
         let longitude = &file.variable("longitude").expect("Could not find variable 'longitude'");
         for lonidx in 0..1440 {
-            let d = meanslabatch[lonidx].clone();
+            let d_sla = meanslabatch[lonidx].clone();
             /// bail out if the whole timeseries is nan
-            let mut nonnans = 0;
-            for _i in 0..d.len() {
-                if !d[_i].is_nan() {
-                    nonnans += 1;
+            let mut nonnans_sla = 0;
+            for _i in 0..d_sla.len() {
+                if !d_sla[_i].is_nan() {
+                    nonnans_sla += 1;
                 }
             }
-            if nonnans == 0 {
+            if nonnans_sla == 0 {
                 continue;
             }
+
+            let d_adt = meanadtbatch[lonidx].clone();
+            /// bail out if the whole timeseries is nan
+            let mut nonnans_adt = 0;
+            for _i in 0..d_adt.len() {
+                if !d_adt[_i].is_nan() {
+                    nonnans_adt += 1;
+                }
+            }
+            if nonnans_adt == 0 {
+                continue;
+            }
+
             let lat = latitude.value::<f64, _>([latidx])?;
             let lon = tidylon(longitude.value::<f64, _>([lonidx])?);
             let basin = find_basin(&basins, lon, lat);
@@ -214,7 +236,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     "type": "Point",
                     "coordinates": [lon, lat]
                 },
-                "data": [d]
+                "data": [d_sla, d_adt]
             };
             docs.push(data);
         }
