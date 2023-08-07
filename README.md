@@ -6,8 +6,7 @@ This repo contains scripts to process and post the sea level anomaly data found 
 
  - branch: ``main``
  - data preperation: all the daily upstream data from Copernicus (2021 version) in `data/`
- - (to be improved): in ``src/main.rs``, update ``timelattice`` and ``outfile`` per output file (currently in 2 year batches).
- - run in the containerized environment described by ``Dockerfile`` with ``cargo run``.
+ - run in the containerized environment described by ``Dockerfile`` with ``run.sh``.
  - doublecheck results using ``proofread.py`` in the environment defined by ``Dockerfile-proofread``
 
 ### Part 2: populating mongodb
