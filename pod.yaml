@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sla-sync
+  labels:
+    tier: api
+spec:
+  volumes:
+    - name: argovis-bulk
+      persistentVolumeClaim:
+        claimName: argovis-bulk
+  containers:
+  - name: sla-sync
+    imagePullPolicy: Always
+    image: argovis/copernicus-sla:dev
+    env:
+    - name: MONGODB_URI
+      value: mongodb://database/argo
+    command: ['sleep', '100000000']
+    #command: ['cargo', 'run']
+    volumeMounts:
+      - mountPath: "/bulk"
+        name: argovis-bulk
+    resources:
+      requests:
+        memory: "0Gi"
+        cpu: "0m"
+      limits:
+        memory: 4500Mi
+        cpu: 1000m
+  restartPolicy: Never
