@@ -157,7 +157,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let basinfile = netcdf::open("/bulk/copernicus-sla/basinmask_01.nc")?;
     let basins = &basinfile.variable("BASIN_TAG").expect("Could not find variable 'BASIN_TAG'");
 
-    for latidx in 350..360 {
+    for latidx in 0..720 {
         println!("latindex {}", latidx);
         let mut meanslabatch = Vec::new();
         let mut meanadtbatch = Vec::new();
