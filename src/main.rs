@@ -92,7 +92,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // collection objects
     let copernicus_sla = client.database("argo").collection("copernicusSLA");
-    let copernicus_sla_meta = client.database("argo").collection("copernicusSLAMeta");
+    let copernicus_sla_meta = client.database("argo").collection("timeseriesMeta");
 
     // Rust structs to serialize time properly
     #[derive(Serialize, Deserialize, Debug)]
