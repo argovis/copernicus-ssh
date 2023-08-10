@@ -15,7 +15,7 @@ db = client.argo
 batchfiles = ["/bulk/copernicus-sla/sla_adt_mean_1993.nc","/bulk/copernicus-sla/sla_adt_mean_1994.nc","/bulk/copernicus-sla/sla_adt_mean_1995.nc","/bulk/copernicus-sla/sla_adt_mean_1996.nc","/bulk/copernicus-sla/sla_adt_mean_1997.nc","/bulk/copernicus-sla/sla_adt_mean_1998.nc","/bulk/copernicus-sla/sla_adt_mean_1999.nc","/bulk/copernicus-sla/sla_adt_mean_2000.nc","/bulk/copernicus-sla/sla_adt_mean_2001.nc","/bulk/copernicus-sla/sla_adt_mean_2002.nc","/bulk/copernicus-sla/sla_adt_mean_2003.nc","/bulk/copernicus-sla/sla_adt_mean_2004.nc","/bulk/copernicus-sla/sla_adt_mean_2005.nc","/bulk/copernicus-sla/sla_adt_mean_2006.nc","/bulk/copernicus-sla/sla_adt_mean_2007.nc","/bulk/copernicus-sla/sla_adt_mean_2008.nc","/bulk/copernicus-sla/sla_adt_mean_2009.nc","/bulk/copernicus-sla/sla_adt_mean_2010.nc","/bulk/copernicus-sla/sla_adt_mean_2011.nc","/bulk/copernicus-sla/sla_adt_mean_2012.nc","/bulk/copernicus-sla/sla_adt_mean_2013.nc","/bulk/copernicus-sla/sla_adt_mean_2014.nc","/bulk/copernicus-sla/sla_adt_mean_2015.nc","/bulk/copernicus-sla/sla_adt_mean_2016.nc","/bulk/copernicus-sla/sla_adt_mean_2017.nc","/bulk/copernicus-sla/sla_adt_mean_2018.nc","/bulk/copernicus-sla/sla_adt_mean_2019.nc","/bulk/copernicus-sla/sla_adt_mean_2020.nc","/bulk/copernicus-sla/sla_adt_mean_2021.nc","/bulk/copernicus-sla/sla_adt_mean_2022.nc"]
 
 while True:
-	lat = math.floor(random.random()*10+350) #math.floor(random.random()*720)
+	lat = math.floor(random.random()*720) #math.floor(random.random()*720)
 	lon = math.floor(random.random()*1440)
 
 	# pick the corresponding mongo doc
