@@ -1,6 +1,6 @@
-cargo run 0
-cargo run 1
-cargo run 2
+#cargo run 0
+#cargo run 1
+#cargo run 2
 cargo run 3
 cargo run 4
 cargo run 5
