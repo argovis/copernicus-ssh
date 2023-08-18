@@ -76,7 +76,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // fixed coordinates
     
-    let batchfiles = ["/bulk/copernicus-sla/sla_adt_mean_1993.nc","/bulk/copernicus-sla/sla_adt_mean_1994.nc","/bulk/copernicus-sla/sla_adt_mean_1995.nc","/bulk/copernicus-sla/sla_adt_mean_1996.nc","/bulk/copernicus-sla/sla_adt_mean_1997.nc","/bulk/copernicus-sla/sla_adt_mean_1998.nc","/bulk/copernicus-sla/sla_adt_mean_1999.nc","/bulk/copernicus-sla/sla_adt_mean_2000.nc","/bulk/copernicus-sla/sla_adt_mean_2001.nc","/bulk/copernicus-sla/sla_adt_mean_2002.nc","/bulk/copernicus-sla/sla_adt_mean_2003.nc","/bulk/copernicus-sla/sla_adt_mean_2004.nc","/bulk/copernicus-sla/sla_adt_mean_2005.nc","/bulk/copernicus-sla/sla_adt_mean_2006.nc","/bulk/copernicus-sla/sla_adt_mean_2007.nc","/bulk/copernicus-sla/sla_adt_mean_2008.nc","/bulk/copernicus-sla/sla_adt_mean_2009.nc","/bulk/copernicus-sla/sla_adt_mean_2010.nc","/bulk/copernicus-sla/sla_adt_mean_2011.nc","/bulk/copernicus-sla/sla_adt_mean_2012.nc","/bulk/copernicus-sla/sla_adt_mean_2013.nc","/bulk/copernicus-sla/sla_adt_mean_2014.nc","/bulk/copernicus-sla/sla_adt_mean_2015.nc","/bulk/copernicus-sla/sla_adt_mean_2016.nc","/bulk/copernicus-sla/sla_adt_mean_2017.nc","/bulk/copernicus-sla/sla_adt_mean_2018.nc","/bulk/copernicus-sla/sla_adt_mean_2019.nc","/bulk/copernicus-sla/sla_adt_mean_2020.nc","/bulk/copernicus-sla/sla_adt_mean_2021.nc","/bulk/copernicus-sla/sla_adt_mean_2022.nc"];
+    //let batchfiles = ["/bulk/copernicus-sla/sla_adt_mean_1993.nc","/bulk/copernicus-sla/sla_adt_mean_1994.nc","/bulk/copernicus-sla/sla_adt_mean_1995.nc","/bulk/copernicus-sla/sla_adt_mean_1996.nc","/bulk/copernicus-sla/sla_adt_mean_1997.nc","/bulk/copernicus-sla/sla_adt_mean_1998.nc","/bulk/copernicus-sla/sla_adt_mean_1999.nc","/bulk/copernicus-sla/sla_adt_mean_2000.nc","/bulk/copernicus-sla/sla_adt_mean_2001.nc","/bulk/copernicus-sla/sla_adt_mean_2002.nc","/bulk/copernicus-sla/sla_adt_mean_2003.nc","/bulk/copernicus-sla/sla_adt_mean_2004.nc","/bulk/copernicus-sla/sla_adt_mean_2005.nc","/bulk/copernicus-sla/sla_adt_mean_2006.nc","/bulk/copernicus-sla/sla_adt_mean_2007.nc","/bulk/copernicus-sla/sla_adt_mean_2008.nc","/bulk/copernicus-sla/sla_adt_mean_2009.nc","/bulk/copernicus-sla/sla_adt_mean_2010.nc","/bulk/copernicus-sla/sla_adt_mean_2011.nc","/bulk/copernicus-sla/sla_adt_mean_2012.nc","/bulk/copernicus-sla/sla_adt_mean_2013.nc","/bulk/copernicus-sla/sla_adt_mean_2014.nc","/bulk/copernicus-sla/sla_adt_mean_2015.nc","/bulk/copernicus-sla/sla_adt_mean_2016.nc","/bulk/copernicus-sla/sla_adt_mean_2017.nc","/bulk/copernicus-sla/sla_adt_mean_2018.nc","/bulk/copernicus-sla/sla_adt_mean_2019.nc","/bulk/copernicus-sla/sla_adt_mean_2020.nc","/bulk/copernicus-sla/sla_adt_mean_2021.nc","/bulk/copernicus-sla/sla_adt_mean_2022.nc"];
+    let batchfiles = ["/bulk/copernicus-sla/sla_adt_mean_1993.nc"];
 
     // mongodb setup ////////////////////////////////////////////////////////////
     // Load the MongoDB connection string from an environment variable:
@@ -109,7 +110,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         data_info: (Vec<String>, Vec<String>, Vec<Vec<String>>),
         date_updated_argovis: DateTime,
         timeseries: Vec<DateTime>,
-        source: Vec<Sourcedoc>
+        source: Vec<Sourcedoc>,
+        tpa_correction: Vec<f64>
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -130,11 +132,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let t0 = Utc.with_ymd_and_hms(1993, 1, 1, 0, 0, 0).unwrap();
 
     let mut timeseries = Vec::new();
+    let mut tpa_correction = Vec::new();
     for _k in 0..batchfiles.len(){
         let file = netcdf::open(batchfiles[_k])?;
         let timestamps = &file.variable("timestamps").expect("Could not find variable 'timestamps'");
+        let tpa_cxn = &file.variable("tpa_correction").expect("Could not find variable 'tpa_correction'");
         for timeidx in 0..timestamps.len() {
             timeseries.push(bson::DateTime::parse_rfc3339_str((t0 + Duration::days(timestamps.value::<i64, _>(timeidx)?)).to_rfc3339().replace("+00:00", "Z")).unwrap() );
+        }
+        for cxn in 0..tpa_cxn.len() {
+            tpa_correction.push(tpa_cxn.value::<f64, _>(cxn)?);
         }
     }
 
@@ -156,7 +163,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 source: vec!(String::from("Copernicus sea level anomaly")),
                 url: String::from("https://cds.climate.copernicus.eu/cdsapp#!/dataset/satellite-sea-level-global")
             }
-        )
+        ),
+        tpa_correction: tpa_correction
     };
     let metadata_doc = bson::to_document(&metadata).unwrap();
     copernicus_sla_meta.insert_one(metadata_doc.clone(), None).await?;
@@ -192,8 +200,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let file = netcdf::open(batchfiles[_f])?; 
             let sla = &file.variable("sla").expect("Could not find variable 'sla'");
             let adt = &file.variable("adt").expect("Could not find variable 'adt'");
-            let sla_nobs = &file.variable("anomaly_nobs").expect("Could not find variable 'anomaly_nobs'");
-            let adt_nobs = &file.variable("abs_nobs").expect("Could not find variable 'abs_nobs'");
+            let sla_nobs = &file.variable("sla_nobs").expect("Could not find variable 'sla_nobs'");
+            let adt_nobs = &file.variable("adt_nobs").expect("Could not find variable 'adt_nobs'");
             let timestamps = &file.variable("timestamps").expect("Could not find variable 'timestamps'");
 
             for lonidx in 0..1440 {
