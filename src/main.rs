@@ -191,15 +191,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("latindex {}", latidx);
         let mut meanslabatch = Vec::new();
         let mut meanadtbatch = Vec::new();
+        let mut meanugosabatch = Vec::new();
+        let mut meanugosbatch = Vec::new();
+        let mut meanvgosabatch = Vec::new();
+        let mut meanvgosbatch = Vec::new();
         for _lonidx in 0..1440 {
             meanslabatch.push(Vec::new());
             meanadtbatch.push(Vec::new());
+            meanugosabatch.push(Vec::new());
+            meanugosbatch.push(Vec::new());
+            meanvgosabatch.push(Vec::new());
+            meanvgosbatch.push(Vec::new());
         }
 
         for _f in 0..batchfiles.len() { // ie for every year
             let file = netcdf::open(batchfiles[_f])?; 
             let sla = &file.variable("sla").expect("Could not find variable 'sla'");
             let adt = &file.variable("adt").expect("Could not find variable 'adt'");
+            let ugosa = &file.variable("ugosa").expect("could not find variable 'ugosa'");
+            let ugos = &file.variable("ugos").expect("could not find variable 'ugos'");
+            let vgosa = &file.variable("vgosa").expect("could not find variable 'vgosa'");
+            let vgos = &file.variable("vgos").expect("could not find variable 'vgos'");
             let sla_nobs = &file.variable("sla_nobs").expect("Could not find variable 'sla_nobs'");
             let adt_nobs = &file.variable("adt_nobs").expect("Could not find variable 'adt_nobs'");
             let timestamps = &file.variable("timestamps").expect("Could not find variable 'timestamps'");
