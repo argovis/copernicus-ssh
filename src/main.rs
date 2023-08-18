@@ -167,12 +167,14 @@ fn main() -> Result<(),netcdf::error::Error> {
     let mut meanVGOSAs: Vec<Vec<Vec<f64>>> = vec![vec![vec![-999.9;1440];720];timelattice.len()];
     let mut meanUGOSs: Vec<Vec<Vec<f64>>> = vec![vec![vec![-999.9;1440];720];timelattice.len()];
     let mut meanVGOSs: Vec<Vec<Vec<f64>>> = vec![vec![vec![-999.9;1440];720];timelattice.len()];
+    let mut meanTPAcorrection: Vec<f64> = vec![-999.9;timelattice.len()];
     let mut slaCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
     let mut adtCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
     let mut ugosaCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
     let mut vgosaCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
     let mut ugosCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
     let mut vgosCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
+    let mut TPAcorrectionCount: Vec<i32> = vec![0;timelattice.len()];
 
     for d in timelattice {
         // determine which daily files to average
@@ -187,6 +189,18 @@ fn main() -> Result<(),netcdf::error::Error> {
             let vgosa = &f.variable("vgosa").expect("Could not find variable 'vgosa'");
             let ugos = &f.variable("ugos").expect("Could not find variable 'ugos'");
             let vgos = &f.variable("vgos").expect("Could not find variable 'vgos'");
+            let tpa = &f.variable("tpa_correction").expect("Could not find variable 'tpa_correction'");
+
+            let tpa_cxn = tpa.value::<i64, _>([0])?;
+            if tpa_cxn!=-2147483647 {
+                if meanTPAcorrection[timeidx] == -999.9 {
+                    // drop the fill value and start counting real values
+                    meanTPAcorrection[timeidx] = 0.0;
+                }
+                meanTPAcorrection[timeidx] += (tpa_cxn as f64) * 0.0001; // account for scale factor here
+                TPAcorrectionCount[timeidx] += 1;
+            }
+
             for lat in 0..720 {
                 for lon in 0..1440 {
 
@@ -434,6 +448,23 @@ fn main() -> Result<(),netcdf::error::Error> {
             // write to file
             vgos_nobs.put_values(&vgos_nobsx, (time, lat, ..));
         }
+    }
+
+    // tpa means
+    let mut meantpa = outfile.add_variable::<f64>("tpa_correction",&["time"])?;
+    for time in 0..timeidx{
+        println!("{}", meanTPAcorrection[time]);
+        if meanTPAcorrection[time] != -999.9 {
+            meantpa.put_values(&[meanTPAcorrection[time] / (TPAcorrectionCount[time] as f64)], time);
+        } else {
+            meantpa.put_values(&[meanTPAcorrection[time]], time);
+        }
+    }
+
+    // tpa counts
+    let mut tpa_nobs = outfile.add_variable::<f64>("tpa_correction_nobs",&["time"])?;  // track how many non-fill-value observations the mean is calculated over
+    for time in 0..timeidx{
+        tpa_nobs.put_values(&[TPAcorrectionCount[time]], time);
     }
 
     // propagate dimensions

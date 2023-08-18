@@ -1,31 +1,31 @@
-#cargo run 0
-#cargo run 1
-#cargo run 2
-cargo run 3
-cargo run 4
-cargo run 5
-cargo run 6
-cargo run 7
-cargo run 8
-cargo run 9
-cargo run 10
-cargo run 11
-cargo run 12
-cargo run 13
-cargo run 14
-cargo run 15
-cargo run 16
-cargo run 17
-cargo run 18
-cargo run 19
-cargo run 20
-cargo run 21
-cargo run 22
-cargo run 23
-cargo run 24
-cargo run 25
-cargo run 26
-cargo run 27
-cargo run 28
-cargo run 29
+cargo run 0
+# cargo run 1
+# cargo run 2
+# cargo run 3
+# cargo run 4
+# cargo run 5
+# cargo run 6
+# cargo run 7
+# cargo run 8
+# cargo run 9
+# cargo run 10
+# cargo run 11
+# cargo run 12
+# cargo run 13
+# cargo run 14
+# cargo run 15
+# cargo run 16
+# cargo run 17
+# cargo run 18
+# cargo run 19
+# cargo run 20
+# cargo run 21
+# cargo run 22
+# cargo run 23
+# cargo run 24
+# cargo run 25
+# cargo run 26
+# cargo run 27
+# cargo run 28
+# cargo run 29
 
