@@ -25,6 +25,8 @@ while True:
 	longitude = tidylon(upstream['longitude'][lon].to_dict()['data'])
 	_id = str(longitude) + "_" + str(latitude)
 	doc = db.copernicusSLA.find_one({"_id": _id})
+	dvars = ['sla', 'adt', 'ugosa', 'ugos', 'vgosa', 'vgos']
+	var = random.choice(dvars)
 
 	if not doc:
 		continue
@@ -33,16 +35,17 @@ while True:
 	means = []
 	for f in batchfiles:
 		xar = xarray.open_dataset(f, decode_times=False, mask_and_scale=False)
-		sla = xar.isel(latitude=lat, longitude=lon)['sla'].to_dict()['data']
-		sla_nobs = xar.isel(latitude=lat, longitude=lon)['sla_nobs'].to_dict()['data']
-		m = [sla[i] if nobs[i]==7 else -999.9 for i in range(len(sla))]
+		v = xar.isel(latitude=lat, longitude=lon)[var].to_dict()['data']
+		v_nobs = xar.isel(latitude=lat, longitude=lon)[var+'_nobs'].to_dict()['data']
+		m = [v[i] if v_nobs[i]==7 else -999.9 for i in range(len(v))]
 		means += m
 
 	
 	# compare with tolerance
 	for i in range(len(means)):
-		if (means[i] != -999.9 and round(means[i],4) != round(doc['data'][0][i],4)) or (means[i] == -999.9 and not math.isnan(doc['data'][0][i])):
-			print("mismatch for profile " + _id + ' at ' + str(i))
+		print(lat, lon, var, round(means[i],4), round(doc['data'][dvars.index(var)][i],4))
+		if (means[i] != -999.9 and round(means[i],4) != round(doc['data'][dvars.index(var)][i],4)) or (means[i] == -999.9 and not math.isnan(doc['data'][dvars.index(var)][i])):
+			print("mismatch for profile " + _id + ' at ' + str(i) + ' for variable ' + var)
 
 
 	
