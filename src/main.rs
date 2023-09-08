@@ -453,7 +453,6 @@ fn main() -> Result<(),netcdf::error::Error> {
     // tpa means
     let mut meantpa = outfile.add_variable::<f64>("tpa_correction",&["time"])?;
     for time in 0..timeidx{
-        println!("{}", meanTPAcorrection[time]);
         if meanTPAcorrection[time] != -999.9 {
             meantpa.put_values(&[meanTPAcorrection[time] / (TPAcorrectionCount[time] as f64)], time);
         } else {
