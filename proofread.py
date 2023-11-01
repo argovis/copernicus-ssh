@@ -17,8 +17,8 @@ while True:
 	year = timestamp[0:4]
 	month = timestamp[5:7] 
 	day = timestamp[8:10]
-	var = random.choice(['sla', 'adt'])
-	nobs_var = {'sla': 'anomaly_nobs', 'adt': 'abs_nobs'}[var]
+	var = random.choice(['sla', 'adt', 'ugosa', 'ugos', 'vgosa', 'vgos', 'tpa_correction'])
+	nobs_var = var + '_nobs'
 	dates = timewindow(f"{year}-{month}-{day}T00:00:00Z", 7)
 	timeidx = timelattice.index(timestamp)
 	try:
@@ -26,19 +26,29 @@ while True:
 	except:
 		continue
 	means = xarray.open_dataset(f"/tmp/sla_adt_mean_{year}.nc", decode_times=False)
-	lat = math.floor(random.random()*720)
-	lon = math.floor(random.random()*1440)
 
 	total = 0
 	nobs = 0
-	for xar in xars:
-		meas = xar[var][0][lat][lon].to_dict()['data']
-		if meas != -2147483647:
-			total += meas*0.0001
-			nobs += 1
+	if var != 'tpa_correction':
+		lat = math.floor(random.random()*720)
+		lon = math.floor(random.random()*1440)
+		for xar in xars:
+			meas = xar[var][0][lat][lon].to_dict()['data']
+			if meas != -2147483647:
+				total += meas*0.0001
+				nobs += 1
+		if means[var][timeidx][lat][lon].to_dict()['data'] != -999.9 and (not math.isclose(total/nobs, means[var][timeidx][lat][lon].to_dict()['data'], abs_tol=1e-5) or not math.isclose(nobs, means[nobs_var][timeidx][lat][lon].to_dict()['data'], abs_tol=1e-5)):
+			print(var, timestamp, lat, lon, total/nobs, means[var][timeidx][lat][lon].to_dict()['data'], nobs, means[nobs_var][timeidx][lat][lon].to_dict()['data'])
 
-	if means[var][timeidx][lat][lon].to_dict()['data'] != -999.9 and (not math.isclose(total/nobs, means[var][timeidx][lat][lon].to_dict()['data'], abs_tol=1e-5) or not math.isclose(nobs, means[nobs_var][timeidx][lat][lon].to_dict()['data'], abs_tol=1e-5)):
-		print(var, timestamp, lat, lon, total/nobs, means[var][timeidx][lat][lon].to_dict()['data'], nobs, means[nobs_var][timeidx][lat][lon].to_dict()['data'])
+
+	else:
+		for xar in xars:
+			meas = xar[var][0].to_dict()['data']
+			if meas != -2147483647:
+				total += meas*0.0001
+				nobs += 1
+		if means[var][timeidx].to_dict()['data'] != -999.9 and (not math.isclose(total/nobs, means[var][timeidx].to_dict()['data'], abs_tol=1e-5) or not math.isclose(nobs, means[nobs_var][timeidx].to_dict()['data'], abs_tol=1e-5)):
+			print(var, timestamp, total/nobs, means[var][timeidx].to_dict()['data'], nobs, means[nobs_var][timeidx].to_dict()['data'])
 
 	means.close()
 	for f in xars:

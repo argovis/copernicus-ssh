@@ -163,8 +163,18 @@ fn main() -> Result<(),netcdf::error::Error> {
     // vectors to hold interim results
     let mut meanSLAs: Vec<Vec<Vec<f64>>> = vec![vec![vec![-999.9;1440];720];timelattice.len()];
     let mut meanADTs: Vec<Vec<Vec<f64>>> = vec![vec![vec![-999.9;1440];720];timelattice.len()];
+    let mut meanUGOSAs: Vec<Vec<Vec<f64>>> = vec![vec![vec![-999.9;1440];720];timelattice.len()];
+    let mut meanVGOSAs: Vec<Vec<Vec<f64>>> = vec![vec![vec![-999.9;1440];720];timelattice.len()];
+    let mut meanUGOSs: Vec<Vec<Vec<f64>>> = vec![vec![vec![-999.9;1440];720];timelattice.len()];
+    let mut meanVGOSs: Vec<Vec<Vec<f64>>> = vec![vec![vec![-999.9;1440];720];timelattice.len()];
+    let mut meanTPAcorrection: Vec<f64> = vec![-999.9;timelattice.len()];
     let mut slaCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
     let mut adtCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
+    let mut ugosaCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
+    let mut vgosaCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
+    let mut ugosCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
+    let mut vgosCount: Vec<Vec<Vec<i32>>> = vec![vec![vec![0;1440];720];timelattice.len()];
+    let mut TPAcorrectionCount: Vec<i32> = vec![0;timelattice.len()];
 
     for d in timelattice {
         // determine which daily files to average
@@ -175,8 +185,25 @@ fn main() -> Result<(),netcdf::error::Error> {
             let f = netcdf::open(format!("data/dt_global_twosat_phy_l4_{}_vDT2021.nc", date))?;
             let sla = &f.variable("sla").expect("Could not find variable 'sla'");
             let adt = &f.variable("adt").expect("Could not find variable 'adt'");
+            let ugosa = &f.variable("ugosa").expect("Could not find variable 'ugosa'");
+            let vgosa = &f.variable("vgosa").expect("Could not find variable 'vgosa'");
+            let ugos = &f.variable("ugos").expect("Could not find variable 'ugos'");
+            let vgos = &f.variable("vgos").expect("Could not find variable 'vgos'");
+            let tpa = &f.variable("tpa_correction").expect("Could not find variable 'tpa_correction'");
+
+            let tpa_cxn = tpa.value::<i64, _>([0])?;
+            if tpa_cxn!=-2147483647 {
+                if meanTPAcorrection[timeidx] == -999.9 {
+                    // drop the fill value and start counting real values
+                    meanTPAcorrection[timeidx] = 0.0;
+                }
+                meanTPAcorrection[timeidx] += (tpa_cxn as f64) * 0.0001; // account for scale factor here
+                TPAcorrectionCount[timeidx] += 1;
+            }
+
             for lat in 0..720 {
                 for lon in 0..1440 {
+
                     let anomaly = sla.value::<i64, _>([0, lat, lon])?;
                     if anomaly!= -2147483647 {
                         if meanSLAs[timeidx][lat][lon] == -999.9 {
@@ -195,6 +222,46 @@ fn main() -> Result<(),netcdf::error::Error> {
                         }
                         meanADTs[timeidx][lat][lon] += (absolute as f64) * 0.0001; // account for scale factor here
                         adtCount[timeidx][lat][lon] += 1;
+                    }
+
+                    let u_anomaly = ugosa.value::<i64, _>([0, lat, lon])?;
+                    if u_anomaly!= -2147483647 {
+                        if meanUGOSAs[timeidx][lat][lon] == -999.9 {
+                            // drop the fill value and start counting real values
+                            meanUGOSAs[timeidx][lat][lon] = 0.0;
+                        }
+                        meanUGOSAs[timeidx][lat][lon] += (u_anomaly as f64) * 0.0001; // account for scale factor here
+                        ugosaCount[timeidx][lat][lon] += 1;
+                    }
+
+                    let v_anomaly = vgosa.value::<i64, _>([0, lat, lon])?;
+                    if v_anomaly!= -2147483647 {
+                        if meanVGOSAs[timeidx][lat][lon] == -999.9 {
+                            // drop the fill value and start counting real values
+                            meanVGOSAs[timeidx][lat][lon] = 0.0;
+                        }
+                        meanVGOSAs[timeidx][lat][lon] += (v_anomaly as f64) * 0.0001; // account for scale factor here
+                        vgosaCount[timeidx][lat][lon] += 1;
+                    }
+
+                    let u_absolute = ugos.value::<i64, _>([0, lat, lon])?;
+                    if u_absolute!= -2147483647 {
+                        if meanUGOSs[timeidx][lat][lon] == -999.9 {
+                            // drop the fill value and start counting real values
+                            meanUGOSs[timeidx][lat][lon] = 0.0;
+                        }
+                        meanUGOSs[timeidx][lat][lon] += (u_absolute as f64) * 0.0001; // account for scale factor here
+                        ugosCount[timeidx][lat][lon] += 1;
+                    }
+
+                    let v_absolute = vgos.value::<i64, _>([0, lat, lon])?;
+                    if v_absolute!= -2147483647 {
+                        if meanVGOSs[timeidx][lat][lon] == -999.9 {
+                            // drop the fill value and start counting real values
+                            meanVGOSs[timeidx][lat][lon] = 0.0;
+                        }
+                        meanVGOSs[timeidx][lat][lon] += (v_absolute as f64) * 0.0001; // account for scale factor here
+                        vgosCount[timeidx][lat][lon] += 1;
                     }
                 }
             }
@@ -221,15 +288,15 @@ fn main() -> Result<(),netcdf::error::Error> {
     }
 
     // anomaly counts
-    let mut anomaly_nobs = outfile.add_variable::<f64>("anomaly_nobs",&["time", "latitude", "longitude"])?;  // track how many non-fill-value observations the mean is calculated over
+    let mut sla_nobs = outfile.add_variable::<f64>("sla_nobs",&["time", "latitude", "longitude"])?;  // track how many non-fill-value observations the mean is calculated over
     for time in 0..timeidx{
         for lat in 0..720 {
-            let mut nobsx = Vec::new();
+            let mut sla_nobsx = Vec::new();
             for lon in 0..1440 {
-                nobsx.push( slaCount[time][lat][lon]);
+                sla_nobsx.push( slaCount[time][lat][lon]);
             }
             // write to file
-            anomaly_nobs.put_values(&nobsx, (time, lat, ..));
+            sla_nobs.put_values(&sla_nobsx, (time, lat, ..));
         }
     }
 
@@ -251,16 +318,152 @@ fn main() -> Result<(),netcdf::error::Error> {
     }
 
     // absolute counts
-    let mut abs_nobs = outfile.add_variable::<f64>("abs_nobs",&["time", "latitude", "longitude"])?;  // track how many non-fill-value observations the mean is calculated over
+    let mut adt_nobs = outfile.add_variable::<f64>("adt_nobs",&["time", "latitude", "longitude"])?;  // track how many non-fill-value observations the mean is calculated over
     for time in 0..timeidx{
         for lat in 0..720 {
-            let mut nobsx = Vec::new();
+            let mut adt_nobsx = Vec::new();
             for lon in 0..1440 {
-                nobsx.push( adtCount[time][lat][lon]);
+                adt_nobsx.push( adtCount[time][lat][lon]);
             }
             // write to file
-            abs_nobs.put_values(&nobsx, (time, lat, ..));
+            adt_nobs.put_values(&adt_nobsx, (time, lat, ..));
         }
+    }
+
+    // u-anomaly means
+    let mut meanugosa = outfile.add_variable::<f64>("ugosa",&["time", "latitude", "longitude"])?;
+    for time in 0..timeidx{
+        for lat in 0..720 {
+            let mut mugosa = Vec::new();
+            for lon in 0..1440 {
+                if meanUGOSAs[time][lat][lon] != -999.9 {
+                    mugosa.push(meanUGOSAs[time][lat][lon] / (ugosaCount[time][lat][lon] as f64));
+                } else {
+                    mugosa.push(meanUGOSAs[time][lat][lon]);
+                }
+            }
+            // write to file
+            meanugosa.put_values(&mugosa, (time, lat, ..));
+        }
+    }
+
+    // u-anomaly counts
+    let mut ugosa_nobs = outfile.add_variable::<f64>("ugosa_nobs",&["time", "latitude", "longitude"])?;  // track how many non-fill-value observations the mean is calculated over
+    for time in 0..timeidx{
+        for lat in 0..720 {
+            let mut ugosa_nobsx = Vec::new();
+            for lon in 0..1440 {
+                ugosa_nobsx.push( ugosaCount[time][lat][lon]);
+            }
+            // write to file
+            ugosa_nobs.put_values(&ugosa_nobsx, (time, lat, ..));
+        }
+    }
+
+    // u-absolute means
+    let mut meanugos = outfile.add_variable::<f64>("ugos",&["time", "latitude", "longitude"])?;
+    for time in 0..timeidx{
+        for lat in 0..720 {
+            let mut mugos = Vec::new();
+            for lon in 0..1440 {
+                if meanUGOSs[time][lat][lon] != -999.9 {
+                    mugos.push(meanUGOSs[time][lat][lon] / (ugosCount[time][lat][lon] as f64));
+                } else {
+                    mugos.push(meanUGOSs[time][lat][lon]);
+                }
+            }
+            // write to file
+            meanugos.put_values(&mugos, (time, lat, ..));
+        }
+    }
+
+    // u-absolute counts
+    let mut ugos_nobs = outfile.add_variable::<f64>("ugos_nobs",&["time", "latitude", "longitude"])?;  // track how many non-fill-value observations the mean is calculated over
+    for time in 0..timeidx{
+        for lat in 0..720 {
+            let mut ugos_nobsx = Vec::new();
+            for lon in 0..1440 {
+                ugos_nobsx.push( ugosCount[time][lat][lon]);
+            }
+            // write to file
+            ugos_nobs.put_values(&ugos_nobsx, (time, lat, ..));
+        }
+    }
+
+    // v-anomaly means
+    let mut meanvgosa = outfile.add_variable::<f64>("vgosa",&["time", "latitude", "longitude"])?;
+    for time in 0..timeidx{
+        for lat in 0..720 {
+            let mut mvgosa = Vec::new();
+            for lon in 0..1440 {
+                if meanVGOSAs[time][lat][lon] != -999.9 {
+                    mvgosa.push(meanVGOSAs[time][lat][lon] / (vgosaCount[time][lat][lon] as f64));
+                } else {
+                    mvgosa.push(meanVGOSAs[time][lat][lon]);
+                }
+            }
+            // write to file
+            meanvgosa.put_values(&mvgosa, (time, lat, ..));
+        }
+    }
+
+    // v-anomaly counts
+    let mut vgosa_nobs = outfile.add_variable::<f64>("vgosa_nobs",&["time", "latitude", "longitude"])?;  // track how many non-fill-value observations the mean is calculated over
+    for time in 0..timeidx{
+        for lat in 0..720 {
+            let mut vgosa_nobsx = Vec::new();
+            for lon in 0..1440 {
+                vgosa_nobsx.push( vgosaCount[time][lat][lon]);
+            }
+            // write to file
+            vgosa_nobs.put_values(&vgosa_nobsx, (time, lat, ..));
+        }
+    }
+
+    // v-absolute means
+    let mut meanvgos = outfile.add_variable::<f64>("vgos",&["time", "latitude", "longitude"])?;
+    for time in 0..timeidx{
+        for lat in 0..720 {
+            let mut mvgos = Vec::new();
+            for lon in 0..1440 {
+                if meanVGOSs[time][lat][lon] != -999.9 {
+                    mvgos.push(meanVGOSs[time][lat][lon] / (vgosCount[time][lat][lon] as f64));
+                } else {
+                    mvgos.push(meanVGOSs[time][lat][lon]);
+                }
+            }
+            // write to file
+            meanvgos.put_values(&mvgos, (time, lat, ..));
+        }
+    }
+
+    // v-absolute counts
+    let mut vgos_nobs = outfile.add_variable::<f64>("vgos_nobs",&["time", "latitude", "longitude"])?;  // track how many non-fill-value observations the mean is calculated over
+    for time in 0..timeidx{
+        for lat in 0..720 {
+            let mut vgos_nobsx = Vec::new();
+            for lon in 0..1440 {
+                vgos_nobsx.push( vgosCount[time][lat][lon]);
+            }
+            // write to file
+            vgos_nobs.put_values(&vgos_nobsx, (time, lat, ..));
+        }
+    }
+
+    // tpa means
+    let mut meantpa = outfile.add_variable::<f64>("tpa_correction",&["time"])?;
+    for time in 0..timeidx{
+        if meanTPAcorrection[time] != -999.9 {
+            meantpa.put_values(&[meanTPAcorrection[time] / (TPAcorrectionCount[time] as f64)], time);
+        } else {
+            meantpa.put_values(&[meanTPAcorrection[time]], time);
+        }
+    }
+
+    // tpa counts
+    let mut tpa_nobs = outfile.add_variable::<f64>("tpa_correction_nobs",&["time"])?;  // track how many non-fill-value observations the mean is calculated over
+    for time in 0..timeidx{
+        tpa_nobs.put_values(&[TPAcorrectionCount[time]], time);
     }
 
     // propagate dimensions
