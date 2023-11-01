@@ -74,9 +74,10 @@ fn find_basin(basins: &netcdf::Variable, longitude: f64, latitude: f64) -> i32 {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 
-    // fixed coordinates
+    let places = 100000000.0;
     
-    let batchfiles = ["/bulk/copernicus-sla/sla_adt_mean_1993.nc","/bulk/copernicus-sla/sla_adt_mean_1994.nc","/bulk/copernicus-sla/sla_adt_mean_1995.nc","/bulk/copernicus-sla/sla_adt_mean_1996.nc","/bulk/copernicus-sla/sla_adt_mean_1997.nc","/bulk/copernicus-sla/sla_adt_mean_1998.nc","/bulk/copernicus-sla/sla_adt_mean_1999.nc","/bulk/copernicus-sla/sla_adt_mean_2000.nc","/bulk/copernicus-sla/sla_adt_mean_2001.nc","/bulk/copernicus-sla/sla_adt_mean_2002.nc","/bulk/copernicus-sla/sla_adt_mean_2003.nc","/bulk/copernicus-sla/sla_adt_mean_2004.nc","/bulk/copernicus-sla/sla_adt_mean_2005.nc","/bulk/copernicus-sla/sla_adt_mean_2006.nc","/bulk/copernicus-sla/sla_adt_mean_2007.nc","/bulk/copernicus-sla/sla_adt_mean_2008.nc","/bulk/copernicus-sla/sla_adt_mean_2009.nc","/bulk/copernicus-sla/sla_adt_mean_2010.nc","/bulk/copernicus-sla/sla_adt_mean_2011.nc","/bulk/copernicus-sla/sla_adt_mean_2012.nc","/bulk/copernicus-sla/sla_adt_mean_2013.nc","/bulk/copernicus-sla/sla_adt_mean_2014.nc","/bulk/copernicus-sla/sla_adt_mean_2015.nc","/bulk/copernicus-sla/sla_adt_mean_2016.nc","/bulk/copernicus-sla/sla_adt_mean_2017.nc","/bulk/copernicus-sla/sla_adt_mean_2018.nc","/bulk/copernicus-sla/sla_adt_mean_2019.nc","/bulk/copernicus-sla/sla_adt_mean_2020.nc","/bulk/copernicus-sla/sla_adt_mean_2021.nc","/bulk/copernicus-sla/sla_adt_mean_2022.nc"];
+    //let batchfiles = ["/bulk/copernicus-sla/sla_adt_mean_1993.nc","/bulk/copernicus-sla/sla_adt_mean_1994.nc","/bulk/copernicus-sla/sla_adt_mean_1995.nc","/bulk/copernicus-sla/sla_adt_mean_1996.nc","/bulk/copernicus-sla/sla_adt_mean_1997.nc","/bulk/copernicus-sla/sla_adt_mean_1998.nc","/bulk/copernicus-sla/sla_adt_mean_1999.nc","/bulk/copernicus-sla/sla_adt_mean_2000.nc","/bulk/copernicus-sla/sla_adt_mean_2001.nc","/bulk/copernicus-sla/sla_adt_mean_2002.nc","/bulk/copernicus-sla/sla_adt_mean_2003.nc","/bulk/copernicus-sla/sla_adt_mean_2004.nc","/bulk/copernicus-sla/sla_adt_mean_2005.nc","/bulk/copernicus-sla/sla_adt_mean_2006.nc","/bulk/copernicus-sla/sla_adt_mean_2007.nc","/bulk/copernicus-sla/sla_adt_mean_2008.nc","/bulk/copernicus-sla/sla_adt_mean_2009.nc","/bulk/copernicus-sla/sla_adt_mean_2010.nc","/bulk/copernicus-sla/sla_adt_mean_2011.nc","/bulk/copernicus-sla/sla_adt_mean_2012.nc","/bulk/copernicus-sla/sla_adt_mean_2013.nc","/bulk/copernicus-sla/sla_adt_mean_2014.nc","/bulk/copernicus-sla/sla_adt_mean_2015.nc","/bulk/copernicus-sla/sla_adt_mean_2016.nc","/bulk/copernicus-sla/sla_adt_mean_2017.nc","/bulk/copernicus-sla/sla_adt_mean_2018.nc","/bulk/copernicus-sla/sla_adt_mean_2019.nc","/bulk/copernicus-sla/sla_adt_mean_2020.nc","/bulk/copernicus-sla/sla_adt_mean_2021.nc","/bulk/copernicus-sla/sla_adt_mean_2022.nc"];
+    let batchfiles = ["/bulk/copernicus-sla/sla_adt_mean_1993.nc"];
 
     // mongodb setup ////////////////////////////////////////////////////////////
     // Load the MongoDB connection string from an environment variable:
@@ -109,7 +110,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         data_info: (Vec<String>, Vec<String>, Vec<Vec<String>>),
         date_updated_argovis: DateTime,
         timeseries: Vec<DateTime>,
-        source: Vec<Sourcedoc>
+        source: Vec<Sourcedoc>,
+        tpa_correction: Vec<f64>
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -130,11 +132,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let t0 = Utc.with_ymd_and_hms(1993, 1, 1, 0, 0, 0).unwrap();
 
     let mut timeseries = Vec::new();
+    let mut tpa_correction = Vec::new();
     for _k in 0..batchfiles.len(){
         let file = netcdf::open(batchfiles[_k])?;
         let timestamps = &file.variable("timestamps").expect("Could not find variable 'timestamps'");
+        let tpa_cxn = &file.variable("tpa_correction").expect("Could not find variable 'tpa_correction'");
         for timeidx in 0..timestamps.len() {
             timeseries.push(bson::DateTime::parse_rfc3339_str((t0 + Duration::days(timestamps.value::<i64, _>(timeidx)?)).to_rfc3339().replace("+00:00", "Z")).unwrap() );
+        }
+        for cxn in 0..tpa_cxn.len() {
+            tpa_correction.push((tpa_cxn.value::<f64, _>(cxn)?*places).round()/places);
         }
     }
 
@@ -142,11 +149,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         _id: String::from("copernicusSLA"),
         data_type: String::from("sea level anomaly"),
         data_info: (
-            vec!(String::from("sla"),String::from("adt")),
+            vec!(String::from("sla"),String::from("adt"),String::from("ugosa"),String::from("ugos"),String::from("vgosa"),String::from("vgos")),
             vec!(String::from("units"), String::from("long_name")),
             vec!(
                 vec!(String::from("m"), String::from("Sea level anomaly")),
                 vec!(String::from("m"), String::from("Absolute dynamic topography")),
+                vec!(String::from("m/s"), String::from("Geostrophic velocity anomalies: zonal component")),
+                vec!(String::from("m/s"), String::from("Absolute geostrophic velocity: zonal component")),
+                vec!(String::from("m/s"), String::from("Geostrophic velocity anomalies: meridian component")),
+                vec!(String::from("m/s"), String::from("Absolute geostrophic velocity: meridian component"))
             )
         ),
         date_updated_argovis: bson::DateTime::parse_rfc3339_str(nowstring()).unwrap(),
@@ -156,7 +167,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 source: vec!(String::from("Copernicus sea level anomaly")),
                 url: String::from("https://cds.climate.copernicus.eu/cdsapp#!/dataset/satellite-sea-level-global")
             }
-        )
+        ),
+        tpa_correction: tpa_correction
     };
     let metadata_doc = bson::to_document(&metadata).unwrap();
     copernicus_sla_meta.insert_one(metadata_doc.clone(), None).await?;
@@ -183,25 +195,41 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("latindex {}", latidx);
         let mut meanslabatch = Vec::new();
         let mut meanadtbatch = Vec::new();
+        let mut meanugosabatch = Vec::new();
+        let mut meanugosbatch = Vec::new();
+        let mut meanvgosabatch = Vec::new();
+        let mut meanvgosbatch = Vec::new();
         for _lonidx in 0..1440 {
             meanslabatch.push(Vec::new());
             meanadtbatch.push(Vec::new());
+            meanugosabatch.push(Vec::new());
+            meanugosbatch.push(Vec::new());
+            meanvgosabatch.push(Vec::new());
+            meanvgosbatch.push(Vec::new());
         }
 
         for _f in 0..batchfiles.len() { // ie for every year
             let file = netcdf::open(batchfiles[_f])?; 
             let sla = &file.variable("sla").expect("Could not find variable 'sla'");
             let adt = &file.variable("adt").expect("Could not find variable 'adt'");
-            let sla_nobs = &file.variable("anomaly_nobs").expect("Could not find variable 'anomaly_nobs'");
-            let adt_nobs = &file.variable("abs_nobs").expect("Could not find variable 'abs_nobs'");
+            let ugosa = &file.variable("ugosa").expect("could not find variable 'ugosa'");
+            let ugos = &file.variable("ugos").expect("could not find variable 'ugos'");
+            let vgosa = &file.variable("vgosa").expect("could not find variable 'vgosa'");
+            let vgos = &file.variable("vgos").expect("could not find variable 'vgos'");
+            let sla_nobs = &file.variable("sla_nobs").expect("Could not find variable 'sla_nobs'");
+            let adt_nobs = &file.variable("adt_nobs").expect("Could not find variable 'adt_nobs'");
+            let ugosa_nobs = &file.variable("ugosa_nobs").expect("Could not find variable 'ugosa_nobs'");
+            let ugos_nobs = &file.variable("ugos_nobs").expect("Could not find variable 'ugos_nobs'");
+            let vgosa_nobs = &file.variable("vgosa_nobs").expect("Could not find variable 'vgosa_nobs'");
+            let vgos_nobs = &file.variable("vgos_nobs").expect("Could not find variable 'vgos_nobs'");
             let timestamps = &file.variable("timestamps").expect("Could not find variable 'timestamps'");
 
             for lonidx in 0..1440 {
                 for timeidx in 0..timestamps.len() {
-                    let v = sla.value::<f64, _>([timeidx, latidx, lonidx])?;
-                    let n = sla_nobs.value::<i64, _>([timeidx, latidx, lonidx])?;
-                    if v != -999.9 && n == 7 { // ie mask out means that didnt have all 7 days available
-                        meanslabatch[lonidx].push(v);
+                    let v_sla = sla.value::<f64, _>([timeidx, latidx, lonidx])?;
+                    let n_sla = sla_nobs.value::<i64, _>([timeidx, latidx, lonidx])?;
+                    if v_sla != -999.9 && n_sla == 7 { // ie mask out means that didnt have all 7 days available
+                        meanslabatch[lonidx].push((v_sla*places).round()/places);
                     } else {
                         meanslabatch[lonidx].push(NAN);
                     }
@@ -209,9 +237,41 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     let v_adt = adt.value::<f64, _>([timeidx, latidx, lonidx])?;
                     let n_adt = adt_nobs.value::<i64, _>([timeidx, latidx, lonidx])?;
                     if v_adt != -999.9 && n_adt == 7 { // ie mask out adts that didnt have all 7 days available
-                        meanadtbatch[lonidx].push(v_adt);
+                        meanadtbatch[lonidx].push((v_adt*places).round()/places);
                     } else {
                         meanadtbatch[lonidx].push(NAN);
+                    }
+
+                    let v_ugosa = ugosa.value::<f64, _>([timeidx, latidx, lonidx])?;
+                    let n_ugosa = ugosa_nobs.value::<i64, _>([timeidx, latidx, lonidx])?;
+                    if v_ugosa != -999.9 && n_ugosa == 7 { // ie mask out ugosas that didnt have all 7 days available
+                        meanugosabatch[lonidx].push((v_ugosa*places).round()/places);
+                    } else {
+                        meanugosabatch[lonidx].push(NAN);
+                    }
+
+                    let v_ugos = ugos.value::<f64, _>([timeidx, latidx, lonidx])?;
+                    let n_ugos = ugos_nobs.value::<i64, _>([timeidx, latidx, lonidx])?;
+                    if v_ugos != -999.9 && n_ugos == 7 { // ie mask out ugoss that didnt have all 7 days available
+                        meanugosbatch[lonidx].push((v_ugos*places).round()/places);
+                    } else {
+                        meanugosbatch[lonidx].push(NAN);
+                    }
+
+                    let v_vgosa = vgosa.value::<f64, _>([timeidx, latidx, lonidx])?;
+                    let n_vgosa = vgosa_nobs.value::<i64, _>([timeidx, latidx, lonidx])?;
+                    if v_vgosa != -999.9 && n_vgosa == 7 { // ie mask out vgosas that didnt have all 7 days available
+                        meanvgosabatch[lonidx].push((v_vgosa*places).round()/places);
+                    } else {
+                        meanvgosabatch[lonidx].push(NAN);
+                    }
+
+                    let v_vgos = vgos.value::<f64, _>([timeidx, latidx, lonidx])?;
+                    let n_vgos = vgos_nobs.value::<i64, _>([timeidx, latidx, lonidx])?;
+                    if v_vgos != -999.9 && n_vgos == 7 { // ie mask out vgoss that didnt have all 7 days available
+                        meanvgosbatch[lonidx].push((v_vgos*places).round()/places);
+                    } else {
+                        meanvgosbatch[lonidx].push(NAN);
                     }
                 }
             }
@@ -224,26 +284,55 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let longitude = &file.variable("longitude").expect("Could not find variable 'longitude'");
         for lonidx in 0..1440 {
             let d_sla = meanslabatch[lonidx].clone();
-            /// bail out if the whole timeseries is nan
             let mut nonnans_sla = 0;
             for _i in 0..d_sla.len() {
                 if !d_sla[_i].is_nan() {
                     nonnans_sla += 1;
                 }
             }
-            if nonnans_sla == 0 {
-                continue;
-            }
 
             let d_adt = meanadtbatch[lonidx].clone();
-            /// bail out if the whole timeseries is nan
             let mut nonnans_adt = 0;
             for _i in 0..d_adt.len() {
                 if !d_adt[_i].is_nan() {
                     nonnans_adt += 1;
                 }
             }
-            if nonnans_adt == 0 {
+
+            let d_ugosa = meanugosabatch[lonidx].clone();
+            let mut nonnans_ugosa = 0;
+            for _i in 0..d_ugosa.len() {
+                if !d_ugosa[_i].is_nan() {
+                    nonnans_ugosa += 1;
+                }
+            }
+
+            let d_ugos = meanugosbatch[lonidx].clone();
+            let mut nonnans_ugos = 0;
+            for _i in 0..d_ugos.len() {
+                if !d_ugos[_i].is_nan() {
+                    nonnans_ugos += 1;
+                }
+            }
+
+            let d_vgosa = meanvgosabatch[lonidx].clone();
+            let mut nonnans_vgosa = 0;
+            for _i in 0..d_vgosa.len() {
+                if !d_vgosa[_i].is_nan() {
+                    nonnans_vgosa += 1;
+                }
+            }
+
+            let d_vgos = meanvgosbatch[lonidx].clone();
+            let mut nonnans_vgos = 0;
+            for _i in 0..d_vgos.len() {
+                if !d_vgos[_i].is_nan() {
+                    nonnans_vgos += 1;
+                }
+            }
+
+            /// bail out if nothing had anything but nans
+            if nonnans_sla + nonnans_adt + nonnans_ugosa + nonnans_ugos + nonnans_vgosa + nonnans_vgos == 0 {
                 continue;
             }
 
@@ -259,7 +348,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     "type": "Point",
                     "coordinates": [lon, lat]
                 },
-                "data": [d_sla, d_adt]
+                "data": [d_sla, d_adt, d_ugosa, d_ugos, d_vgosa, d_vgos]
             };
             docs.push(data);
         }
