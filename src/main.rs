@@ -76,8 +76,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let places = 100000000.0;
     
-    //let batchfiles = ["/bulk/copernicus-sla/sla_adt_mean_1993.nc","/bulk/copernicus-sla/sla_adt_mean_1994.nc","/bulk/copernicus-sla/sla_adt_mean_1995.nc","/bulk/copernicus-sla/sla_adt_mean_1996.nc","/bulk/copernicus-sla/sla_adt_mean_1997.nc","/bulk/copernicus-sla/sla_adt_mean_1998.nc","/bulk/copernicus-sla/sla_adt_mean_1999.nc","/bulk/copernicus-sla/sla_adt_mean_2000.nc","/bulk/copernicus-sla/sla_adt_mean_2001.nc","/bulk/copernicus-sla/sla_adt_mean_2002.nc","/bulk/copernicus-sla/sla_adt_mean_2003.nc","/bulk/copernicus-sla/sla_adt_mean_2004.nc","/bulk/copernicus-sla/sla_adt_mean_2005.nc","/bulk/copernicus-sla/sla_adt_mean_2006.nc","/bulk/copernicus-sla/sla_adt_mean_2007.nc","/bulk/copernicus-sla/sla_adt_mean_2008.nc","/bulk/copernicus-sla/sla_adt_mean_2009.nc","/bulk/copernicus-sla/sla_adt_mean_2010.nc","/bulk/copernicus-sla/sla_adt_mean_2011.nc","/bulk/copernicus-sla/sla_adt_mean_2012.nc","/bulk/copernicus-sla/sla_adt_mean_2013.nc","/bulk/copernicus-sla/sla_adt_mean_2014.nc","/bulk/copernicus-sla/sla_adt_mean_2015.nc","/bulk/copernicus-sla/sla_adt_mean_2016.nc","/bulk/copernicus-sla/sla_adt_mean_2017.nc","/bulk/copernicus-sla/sla_adt_mean_2018.nc","/bulk/copernicus-sla/sla_adt_mean_2019.nc","/bulk/copernicus-sla/sla_adt_mean_2020.nc","/bulk/copernicus-sla/sla_adt_mean_2021.nc","/bulk/copernicus-sla/sla_adt_mean_2022.nc"];
-    let batchfiles = ["/bulk/copernicus-sla/sla_adt_mean_1993.nc"];
+    let batchfiles = ["/bulk/copernicus-sla/sla_adt_mean_1993.nc","/bulk/copernicus-sla/sla_adt_mean_1994.nc","/bulk/copernicus-sla/sla_adt_mean_1995.nc","/bulk/copernicus-sla/sla_adt_mean_1996.nc","/bulk/copernicus-sla/sla_adt_mean_1997.nc","/bulk/copernicus-sla/sla_adt_mean_1998.nc","/bulk/copernicus-sla/sla_adt_mean_1999.nc","/bulk/copernicus-sla/sla_adt_mean_2000.nc","/bulk/copernicus-sla/sla_adt_mean_2001.nc","/bulk/copernicus-sla/sla_adt_mean_2002.nc","/bulk/copernicus-sla/sla_adt_mean_2003.nc","/bulk/copernicus-sla/sla_adt_mean_2004.nc","/bulk/copernicus-sla/sla_adt_mean_2005.nc","/bulk/copernicus-sla/sla_adt_mean_2006.nc","/bulk/copernicus-sla/sla_adt_mean_2007.nc","/bulk/copernicus-sla/sla_adt_mean_2008.nc","/bulk/copernicus-sla/sla_adt_mean_2009.nc","/bulk/copernicus-sla/sla_adt_mean_2010.nc","/bulk/copernicus-sla/sla_adt_mean_2011.nc","/bulk/copernicus-sla/sla_adt_mean_2012.nc","/bulk/copernicus-sla/sla_adt_mean_2013.nc","/bulk/copernicus-sla/sla_adt_mean_2014.nc","/bulk/copernicus-sla/sla_adt_mean_2015.nc","/bulk/copernicus-sla/sla_adt_mean_2016.nc","/bulk/copernicus-sla/sla_adt_mean_2017.nc","/bulk/copernicus-sla/sla_adt_mean_2018.nc","/bulk/copernicus-sla/sla_adt_mean_2019.nc","/bulk/copernicus-sla/sla_adt_mean_2020.nc","/bulk/copernicus-sla/sla_adt_mean_2021.nc","/bulk/copernicus-sla/sla_adt_mean_2022.nc"];
+    //let batchfiles = ["/bulk/copernicus-sla/sla_adt_mean_1993.nc"];
 
     // mongodb setup ////////////////////////////////////////////////////////////
     // Load the MongoDB connection string from an environment variable:
@@ -94,13 +94,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // collection objects
     let copernicus_sla = client.database("argo").collection("copernicusSLA");
     let copernicus_sla_meta = client.database("argo").collection("timeseriesMeta");
-    let summaries = client.database("argo").collection("summaries");
+    //let summaries = client.database("argo").collection("summaries");
 
     // Rust structs to serialize time properly
     #[derive(Serialize, Deserialize, Debug)]
     struct Sourcedoc {
         source: Vec<String>,
         url: String
+    }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct Lattice {
+        center: Vec<f64>,
+        spacing: Vec<f64>,
+        minLat: f64,
+        minLon: f64,
+        maxLat: f64,
+        maxLon: f64
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -111,7 +121,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         date_updated_argovis: DateTime,
         timeseries: Vec<DateTime>,
         source: Vec<Sourcedoc>,
-        tpa_correction: Vec<f64>
+        tpa_correction: Vec<f64>,
+        lattice: Lattice
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -146,7 +157,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let metadata = SlaMetadoc{
-        _id: String::from("copernicusSLA"),
+        _id: String::from("copernicussla"),
         data_type: String::from("sea level anomaly"),
         data_info: (
             vec!(String::from("sla"),String::from("adt"),String::from("ugosa"),String::from("ugos"),String::from("vgosa"),String::from("vgos")),
@@ -168,22 +179,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 url: String::from("https://cds.climate.copernicus.eu/cdsapp#!/dataset/satellite-sea-level-global")
             }
         ),
-        tpa_correction: tpa_correction
+        tpa_correction: tpa_correction,
+        lattice: Lattice {
+            center : [0.125, 0.125],
+            spacing : [0.25, 0.25],
+            minLat : -78.625,
+            minLon : -179.875,
+            maxLat : 86.375,
+            maxLon : 179.875
+        }
     };
     let metadata_doc = bson::to_document(&metadata).unwrap();
     copernicus_sla_meta.insert_one(metadata_doc.clone(), None).await?;
 
-    // construct summary doc
-    let summary = summaryDoc {
-        _id: String::from("copernicusslasummary"),
-        data: vec!(String::from("sla"), String::from("adt")),
-        longitude_grid_spacing_degrees: 0.25,
-        latitude_grid_spacing_degrees: 0.25,
-        longitude_center: 0.125,
-        latitude_center: 0.125
-    };
-    let summary_doc = bson::to_document(&summary).unwrap();
-    summaries.insert_one(summary_doc.clone(), None).await?;
+    // // construct summary doc
+    // let summary = summaryDoc {
+    //     _id: String::from("copernicusslasummary"),
+    //     data: vec!(String::from("sla"), String::from("adt")),
+    //     longitude_grid_spacing_degrees: 0.25,
+    //     latitude_grid_spacing_degrees: 0.25,
+    //     longitude_center: 0.125,
+    //     latitude_center: 0.125
+    // };
+    // let summary_doc = bson::to_document(&summary).unwrap();
+    // summaries.insert_one(summary_doc.clone(), None).await?;
 
     // data doc: start by building matrix of measurement values for a single latitude and all the longitudes:
 
@@ -342,7 +361,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let id = [lon.to_string(), lat.to_string()].join("_");
             let data = doc!{
                 "_id": id,
-                "metadata": ["copernicusSLA"],
+                "metadata": ["copernicussla"],
                 "basin": basin,
                 "geolocation": {
                     "type": "Point",
