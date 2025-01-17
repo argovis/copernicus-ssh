@@ -15,4 +15,5 @@ This repo contains scripts to process and post the sea level anomaly data found 
  - data preparation: all results from step 1 as well as basins file in `/bulk/copernicus-sla/`
  - create empty `copernicusSLA`  collection with appropriate script in https://github.com/argovis/db-schema; make sure shared `timeseriesMeta` collection also exists if not already
  - run in the containerized environment described by `Dockerfile` with `cargo run`
+ - maintain summary docs by building and running the image described in `Dockerfile-summary`
  - doublecheck results using `proofread.py` in environment defined by `Dockerfile-proofread`
